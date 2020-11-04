@@ -1,0 +1,11 @@
+main :: Bool = let f :: forall a. (a -> Int) = (recfun f :: (a -> Int) x = (- 1));
+               in let f :: forall d. (d -> Int) = (recfun f :: (d -> Int) x = (- 2));
+                  in let f :: forall g. (g -> Int) = (recfun f :: (g -> Int) x = (- 3));
+                     in let f :: forall j. (j -> Int) = (recfun f :: (j -> Int) x = (- 4));
+                        in let f :: forall m. (m -> Int) = (recfun f :: (m -> Int) x = (- 5));
+                           in let f :: forall p. (p -> Int) = (recfun f :: (p -> Int) x = (- 6));
+                              in let f :: forall s. (s -> Int) = (recfun f :: (s -> Int) x = (- 7));
+                                 in let f :: forall v. (v -> Int) = (recfun f :: (v -> Int) x = (- 8));
+                                    in let f :: forall y. (y -> Int) = (recfun f :: (y -> Int) x = (- 9));
+                                       in let f :: forall a2. (a2 -> Bool) = (recfun f :: (a2 -> Bool) x = True);
+                                          in f 7;

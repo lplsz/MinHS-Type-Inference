@@ -1,0 +1,2 @@
+main :: forall k. (Int -> (k -> Int) * Int) = let g :: forall e. (Int -> (e -> Int) * Int) = (recfun f :: (Int -> (e -> Int) * Int) x = ((recfun h :: (e -> Int) z = x), (+) x 1));
+                                              in g;

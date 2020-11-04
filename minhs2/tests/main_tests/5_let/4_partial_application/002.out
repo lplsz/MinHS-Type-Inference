@@ -1,0 +1,2 @@
+main :: Int = let f :: forall a. (a -> Int -> Int) = (recfun f :: (a -> Int -> Int) x = (recfun g :: (Int -> Int) y = (+) y y));
+              in f 2 3;
