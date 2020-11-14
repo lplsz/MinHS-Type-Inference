@@ -1,0 +1,20 @@
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/Env.hs:
+  hash: 7dd2e340b9e7801eec60380c933e7c607f4a4ebcf28fec803ebbe4b02e0f99fc
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/Evaluator.hs:
+  hash: 46e3c2359f949a0bd7fa0a7d594d3c529bd6a47907055b31de0c3fe2b766dc7c
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/Subst.hs:
+  hash: 6392ce61d56c8a79c262cfaa515afd042de8d4ca41707ef31048f8a0a4c0f0af
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/minhs2.cabal:
+  hash: 8962d86ec3cbaa1025caef579fea3e4557e423300035dfd9399393db72722eae
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/Syntax.hs:
+  hash: 73bb7665df7b11ad4ce846b5e6e9e11dc7dd43dd50b16a6f6364a6c23f5165ab
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/Parse.hs:
+  hash: 8c0a08e78aed5845595556b31f2f0cf0b832a4c726787be4f2502ad3fdfd991b
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/Main.hs:
+  hash: d6bfd499f9934914a5af5aec0d7e0e547abc9de72d9134eff7f278a9e26d8bb4
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/TCMonad.hs:
+  hash: abf930261f6f1b19fb3dca465028702ae1edba3e08a7ba886524fbedf8b23091
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/Pretty.hs:
+  hash: d287592f9c7acda87fc20f8dbd01df25d4c3c5b472af4bbe43957601366a5116
+/Users/Peter/Documents/CS/MinHS-Type-Inference/minhs2/MinHS/TyInfer.hs:
+  hash: 5d621961fa559cbb55fc36fa4a5c3b38734454fce3c7b85062c861bc4050e1bd

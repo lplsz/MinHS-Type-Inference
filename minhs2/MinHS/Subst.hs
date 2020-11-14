@@ -12,10 +12,12 @@ import MinHS.Env hiding (lookup)
 import Data.Semigroup (Semigroup ((<>)))
 newtype Subst = Subst [(Id, Type)]
 
+-- ("a" =: TypeVar "b"): To construct a substitution
 instance Semigroup Subst where 
   Subst a <> Subst b = Subst $ map (fmap $ substitute $ Subst b) a
                             ++ map (fmap $ substitute $ Subst a) b
-  
+
+-- Applying the substitution a <> b is the same as applying a and b simultaneously.
 instance Monoid Subst where
   mempty = Subst []
   mappend = (<>)
@@ -33,11 +35,14 @@ substQType s (Ty t) = Ty (substitute s t)
 substQType s (Forall x t) = Forall x (substQType (remove x s) t)
   where remove x (Subst s) = Subst $ filter ((/= x) . fst) s
 
+-- Perform substitution on an Env
 substGamma :: Subst -> Env QType -> Env QType
 substGamma = fmap . substQType
 
+-- Return an empty substitution
 emptySubst :: Subst
 emptySubst = mempty
 
+-- Subst constructor
 (=:) :: Id -> Type -> Subst
 a =: b = Subst [(a,b)]

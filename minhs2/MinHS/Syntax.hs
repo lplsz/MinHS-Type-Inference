@@ -42,10 +42,12 @@ data Op = Add
         | Snd
         deriving (Show, Eq, Read)
 
+-- Type that include for all
 data QType = Forall Id QType
            | Ty Type
            deriving (Read, Show, Eq, Ord)
 
+-- Non for all type
 data Type = Arrow Type Type
           | Prod Type Type
           | Sum Type Type
@@ -53,6 +55,7 @@ data Type = Arrow Type Type
           | TypeVar Id
           deriving (Read, Show, Eq, Ord)
 
+-- Concrete types
 data BaseType = Unit
               | Bool
               | Int
@@ -61,7 +64,7 @@ data BaseType = Unit
 binApply :: Exp -> Exp -> Exp -> Exp
 binApply e1 e2 e3 = App (App e1 e2) e3
 
-
+-- Update Type annotation
 allTypes :: (QType -> QType) -> Exp -> Exp
 allTypes f (App e1 e2) = App (allTypes f e1) (allTypes f e2)
 allTypes f (If c t e)  = If (allTypes f c) (allTypes f t) (allTypes f e)

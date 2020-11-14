@@ -18,6 +18,10 @@ data TypeError = TypeMismatch Type Type
                | ForallInRecfun
                deriving (Show)
 
+-- Return: an ordinary function which lifts pure values into a TC action that returns that value
+
+
+-- return a value of type a, or throw an exception.
 newtype TC a = TC ([Id] -> Either TypeError ([Id], a))
 
 instance Monad TC where
@@ -39,6 +43,7 @@ freshNames = map pure ['a'..'z'] ++ map ((++) "a" . show) [1..]
 runTC :: TC a -> Either TypeError a
 runTC (TC f) = fmap snd (f freshNames)
 
+-- Convert an Error into TC
 typeError :: TypeError -> TC a
 typeError = TC . const . Left
 
