@@ -36,7 +36,7 @@ main = execParser argsInfo >>= main'
             "parser-raw"  -> return $ \f -> parser >=> rawPrinter
             "type-infer"  -> return $ \f -> parser >=> typechecker f >=> printer f
             "evaluator"   -> return $ evaluatorAction
-            _             -> readerAbort (ShowHelpText Nothing)
+            _             -> return $ evaluatorAction
 
         evaluatorAction :: (Doc -> Doc) -> Action String (IO ())
         evaluatorAction f = parser >=> typechecker f >=> evaluator >=> printer f

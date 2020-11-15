@@ -56,7 +56,7 @@ tv = tv'
    tv' (Prod  a b) = tv a `union` tv b
    tv' (Sum   a b) = tv a `union` tv b
    tv' (Arrow a b) = tv a `union` tv b
-   tv' (Base c   ) = []
+   tv' (Base _   ) = []
 
 -- Given Qtype, return all type variables in q
 tvQ :: QType -> [Id]
@@ -68,7 +68,7 @@ tvGamma :: Gamma -> [Id]
 tvGamma = nub . foldMap tvQ
 
 infer :: Program -> Either TypeError Program
-infer program = do (p',tau, s) <- runTC $ inferProgram initialGamma program
+infer program = do (p', _, _) <- runTC $ inferProgram initialGamma program
                    return p'
 
 unquantify :: QType -> TC Type
@@ -95,21 +95,25 @@ unquantify' i s (Forall x t) = do x' <- fresh
 
 unify :: Type -> Type -> TC Subst
 -- Both are type variables
-unify (TypeVar v1) (TypeVar v1) = return emptySubst
-unify (TypeVar v1) (TypeVar v2) = return (v1 =: TypeVar v2)
+unify (TypeVar v1) (TypeVar v2) = 
+    if v1 == v2 
+        then return emptySubst
+        else return (v1 =: TypeVar v2)
 
 -- Both are primitive types
-unify (Base t1) (Base t1) = return emptySubst
-unify (Base t1) (Base t2) = typeError & TypeMismatch t1 t2
+unify (Base t1) (Base t2) = 
+    if t1 == t2 
+        then return emptySubst
+        else typeError $ TypeMismatch (Base t1) (Base t2)
 
 -- Both are product types
-unify (Prod t11 t22) (Prod t21 t22) = unifyProSumFun t11 t22 t21 t22
+unify (Prod t11 t12) (Prod t21 t22) = unifyProSumFun t11 t12 t21 t22
 
 -- Both are sum types
-unify (Sum t11 t22) (Sum t21 t22) = unifyProSumFun t11 t22 t21 t22
+unify (Sum t11 t12) (Sum t21 t22) = unifyProSumFun t11 t12 t21 t22
 
 -- Both are function types
-unify (Arrow t11 t22) (Arrow t21 t22) = unifyProSumFun t11 t22 t21 t22
+unify (Arrow t11 t12) (Arrow t21 t22) = unifyProSumFun t11 t12 t21 t22
 
 -- One type variable v and arbitrary term t
 unify (TypeVar v) t = 
@@ -117,58 +121,107 @@ unify (TypeVar v) t =
         then typeError $ OccursCheckFailed v t
         else return (v =: t)
 
-unify _ _ = error "No unifier"
+unify t1 t2 = error $ "No unifier for " ++ show t1 ++ " " ++ show t2 
 
 unifyProSumFun :: Type -> Type -> Type -> Type -> TC Subst
-unifyProSumFun t11 t22 t21 t22 = do
+unifyProSumFun t11 t12 t21 t22 = do
     s   <- unify t11 t21
     s'  <- unify (substitute s t12) (substitute s t22)
     return (s <> s')
 
 generalise :: Gamma -> Type -> QType
--- generalise env (Ty t) = tv t \\ tvGamma env
-generalise g t = error "implement me"
+generalise env t = foldr Forall (Ty t) (tv t \\ tvGamma env)
+generalise _ _ = error "implement me"
+
+-- generaliseHelper :: [Id] -> Type -> QType
+-- generaliseHelper [] t       = Ty t
+-- generaliseHelper (x:xs) t   = Forall x (generaliseHelper xs t)
+
 
 inferProgram :: Gamma -> Program -> TC (Program, Type, Subst)
-inferProgram env bs = error "implement me! don't forget to run the result substitution on the"
+inferProgram env [Bind id _ _ e1] = do
+    (e1', t, s)      <- inferExp env e1
+    return ([Bind id (Just $ generalise env t) [] (allTypes (substQType s) e1')], t, s)
+    
+inferProgram _ _ = error "implement me! don't forget to run the result substitution on the"
                             "entire expression using allTypes from Syntax.hs"
 
 inferExp :: Gamma -> Exp -> TC (Exp, Type, Subst)
-inferExp env a@(Num i) = return (a, Base Int, emptySubst)
+-- Constant
+inferExp _ a@(Num _) = return (a, Base Int, emptySubst)
 
-inferExp env a@(Con id) = case constType id of 
+inferExp _ a@(Con id) = case constType id of 
     Just v      -> do v' <- unquantify v; return (a, v', emptySubst) 
     Nothing     -> typeError $ NoSuchConstructor id
 
-inferExp env a@(Prim op) = do 
-    t       <- primOpType op
-    t'      <- unquantify t
-    return (a, t', emptySubst)
+inferExp _ a@(Prim op) = do 
+    t         <- unquantify $ primOpType op
+    return (a, t, emptySubst)
 
-inferExp env (Var id) = case lookup env id of
-    Just v      -> inferExp env v
+-- Variable
+inferExp env (Var id) = case E.lookup env id of
+    Just v      -> do v' <- unquantify v; return (Var id, v', emptySubst)
     Nothing     -> typeError $ NoSuchVariable id
 
+-- If
 inferExp env (If e e1 e2) = do
     (e', tau, t)        <- inferExp env e
     u                   <- unify tau (Base Bool) 
-    (e1', tau1, t1)     <- inferExp env' @(substGamma (u <> t) env) e1
-    (e2', tau2, t2)     <- inferExp (substGamma t1 env') e2
+    (e1', tau1, t1)     <- inferExp (substGamma (u <> t) env) e1
+    (e2', tau2, t2)     <- inferExp (substGamma (t1 <> u <> t) env) e2
     u'                  <- unify (substitute t2 tau1) tau2
-    return (If e' e1' e2', substitute u' tau2, (u' <> t2 <> t1 <> u <> t))
+    return (If e' e1' e2', substitute u' tau2, u' <> t2 <> t1 <> u <> t)
 
-inferExp env (Apply e1 e2) = do
+-- Function Application
+inferExp env (App e1 e2) = do
     (e1', tau1, t)      <- inferExp env e1
     (e2', tau2, t')     <- inferExp (substGamma t env) e2
-    u                   <- unify (substitute t' tau1) (Arrow tau2 a@(fresh))
-    let e1'' = allTypes 
-    return (Apply e1' e2', substitute u a, u <> t' <> t)
+    alpha               <- fresh
+    u                   <- unify (substitute t' tau1) (Arrow tau2 alpha)
+    return (App e1' e2', substitute u alpha, u <> t' <> t)
 
-inferExp env (Let (Bind id _ [] e1) e2) = do
+-- Let
+inferExp env (Let [Bind id _ [] e1] e2) = do
     (e1', tau, t)       <- inferExp env e1
+    let env' = E.add (substGamma t env) (id, generalise (substGamma t env) tau) 
     (e2', tau', t')     <- inferExp (substGamma t env') e2 
-    return (Let [Bind id (Just (generalise env' tau)) [] e1'] e2', tau', t <> t')
-        where env' = E.add env (id, (generalise (substGamma t, env) tau))
+    return (Let [Bind id (Just (generalise env' tau)) [] e1'] e2', tau', t' <> t)
+
+-- Recfun
+inferExp env (Recfun (Bind id _ [x] e)) = do
+    alpha1          <- fresh
+    alpha2          <- fresh
+    (e', tau, t)    <- inferExp (E.addAll env [(x, Ty alpha1), (id, Ty alpha2)]) e
+    u               <- unify (substitute t alpha2) (Arrow (substitute t alpha1) tau)
+    let ty = substitute u (Arrow (substitute t alpha1) tau)
+    return (Recfun (Bind id (Just $ Ty ty) [x] e'), ty, u <> t)
+
+
+-- Case
+inferExp env (Case e [Alt "Inl" [x] e1, Alt "Inr" [y] e2]) = do
+    (e', tau, t)        <- inferExp env e
+    a_l                 <- fresh
+    a_r                 <- fresh
+
+    let env' = substGamma t (E.add env (x, Ty a_l))
+    (e1', tau_l, t1)    <- inferExp env' e1
+
+    let env'' = substGamma (t1 <> t) (E.add env (y, Ty a_r))
+    (e2', tau_r, t2)    <- inferExp env'' e2
+
+    let tl1 = substitute (t2 <> t1 <> t) (Sum a_l a_r)
+        tl2 = substitute (t2 <> t1) tau
+    u                   <- unify tl1 tl2
+
+    let tr1 = substitute (u <> t2) tau_l
+        tr2 = substitute u tau_r
+    u'                  <- unify tr1 tr2
+
+    let new_e = Case e' [Alt "Inl" [x] e1', Alt "Inr" [y] e2']
+    return (new_e, substitute (u' <> u) tau_r, u' <> u <> t2 <> t1 <> t)
+
+inferExp _ (Case _ _) = typeError MalformedAlternatives
+
 
 -- inferExp env (Let ((Bind id _ [] ):xs)) = let 
 
