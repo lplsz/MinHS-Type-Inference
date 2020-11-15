@@ -71,6 +71,7 @@ infer :: Program -> Either TypeError Program
 infer program = do (p', _, _) <- runTC $ inferProgram initialGamma program
                    return p'
 
+-- Add fresh variable for forall
 unquantify :: QType -> TC Type
 {-
 Normally this implementation would be possible:
@@ -121,28 +122,32 @@ unify (TypeVar v) t =
         then typeError $ OccursCheckFailed v t
         else return (v =: t)
 
+unify t (TypeVar v) = 
+    if v `elem` tv t 
+        then typeError $ OccursCheckFailed v t
+        else return (v =: t)
+
 unify t1 t2 = error $ "No unifier for " ++ show t1 ++ " " ++ show t2 
 
+-- Helper function that unifers product, sum and function type
 unifyProSumFun :: Type -> Type -> Type -> Type -> TC Subst
 unifyProSumFun t11 t12 t21 t22 = do
     s   <- unify t11 t21
     s'  <- unify (substitute s t12) (substitute s t22)
     return (s <> s')
 
+-- For all varaible in the list difference, generalise them with forall
 generalise :: Gamma -> Type -> QType
 generalise env t = foldr Forall (Ty t) (tv t \\ tvGamma env)
 generalise _ _ = error "implement me"
 
--- generaliseHelper :: [Id] -> Type -> QType
--- generaliseHelper [] t       = Ty t
--- generaliseHelper (x:xs) t   = Forall x (generaliseHelper xs t)
-
-
 inferProgram :: Gamma -> Program -> TC (Program, Type, Subst)
 inferProgram env [Bind id _ _ e1] = do
     (e1', t, s)      <- inferExp env e1
-    return ([Bind id (Just $ generalise env t) [] (allTypes (substQType s) e1')], t, s)
-    
+    -- Generalise the type and update type annotation
+    let new_p = [Bind id (Just $ generalise env t) [] (allTypes (substQType s) e1')]
+    return (new_p, t, s)
+
 inferProgram _ _ = error "implement me! don't forget to run the result substitution on the"
                             "entire expression using allTypes from Syntax.hs"
 
@@ -187,6 +192,9 @@ inferExp env (Let [Bind id _ [] e1] e2) = do
     (e2', tau', t')     <- inferExp (substGamma t env') e2 
     return (Let [Bind id (Just (generalise env' tau)) [] e1'] e2', tau', t' <> t)
 
+inferExp env (Let (x:xs) e2) = let
+    ()      = inferExp env (Let x e2)
+
 -- Recfun
 inferExp env (Recfun (Bind id _ [x] e)) = do
     alpha1          <- fresh
@@ -227,8 +235,7 @@ inferExp _ (Case _ _) = typeError MalformedAlternatives
 
 
 
-inferExp g _ = error "Implement me!"
+inferExp _ _ = error "Implement me!"
 -- -- Note: this is the only case you need to handle for case expressions
 -- inferExp g (Case e [Alt "Inl" [x] e1, Alt "Inr" [y] e2])
 -- inferExp g (Case e _) = typeError MalformedAlternatives
-
