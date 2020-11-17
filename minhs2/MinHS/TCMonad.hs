@@ -11,10 +11,10 @@ import Control.Applicative
 import Control.Monad
 
 data TypeError = TypeMismatch Type Type
-               | OccursCheckFailed Id Type
-               | NoSuchVariable Id
-               | NoSuchConstructor Id
-               | MalformedAlternatives
+               | OccursCheckFailed Id Type  -- have
+               | NoSuchVariable Id      -- have
+               | NoSuchConstructor Id   -- have
+               | MalformedAlternatives  -- have
                | ForallInRecfun
                deriving (Show)
 

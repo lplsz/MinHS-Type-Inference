@@ -186,14 +186,18 @@ inferExp env (App e1 e2) = do
     return (App e1' e2', substitute u alpha, u <> t' <> t)
 
 -- Let
+-- Single Bind
 inferExp env (Let [Bind id _ [] e1] e2) = do
     (e1', tau, t)       <- inferExp env e1
     let env' = E.add (substGamma t env) (id, generalise (substGamma t env) tau) 
     (e2', tau', t')     <- inferExp (substGamma t env') e2 
     return (Let [Bind id (Just (generalise env' tau)) [] e1'] e2', tau', t' <> t)
 
-inferExp env (Let (x:xs) e2) = let
-    ()      = inferExp env (Let x e2)
+-- Multiple Binds
+inferExp env (Let xs e2) = do
+    (env', xs', t)      <- inferMultiLet env xs [] emptySubst
+    (e2', tau', t')     <- inferExp env' e2
+    return (Let xs' e2', tau', t' <> t)    
 
 -- Recfun
 inferExp env (Recfun (Bind id _ [x] e)) = do
@@ -204,6 +208,14 @@ inferExp env (Recfun (Bind id _ [x] e)) = do
     let ty = substitute u (Arrow (substitute t alpha1) tau)
     return (Recfun (Bind id (Just $ Ty ty) [x] e'), ty, u <> t)
 
+-- N-ary Recfun
+inferExp env (Recfun (Bind id _ xs e)) = do
+    env'            <- bindArgs env xs
+    alpha2          <- fresh
+    (e', tau, t)    <- inferExp (E.add env' (id, Ty alpha2)) e
+    u               <- unify (substitute t alpha2) (nAryType (substGamma t env') xs tau)
+    let ty = substitute u (nAryType (substGamma t env') xs tau)
+    return (Recfun (Bind id (Just $ Ty ty) xs e'), ty, u <> t)
 
 -- Case
 inferExp env (Case e [Alt "Inl" [x] e1, Alt "Inr" [y] e2]) = do
@@ -230,12 +242,37 @@ inferExp env (Case e [Alt "Inl" [x] e1, Alt "Inr" [y] e2]) = do
 
 inferExp _ (Case _ _) = typeError MalformedAlternatives
 
-
--- inferExp env (Let ((Bind id _ [] ):xs)) = let 
-
-
-
 inferExp _ _ = error "Implement me!"
+
 -- -- Note: this is the only case you need to handle for case expressions
 -- inferExp g (Case e [Alt "Inl" [x] e1, Alt "Inr" [y] e2])
 -- inferExp g (Case e _) = typeError MalformedAlternatives
+
+
+-- Recursive helper function that deal with multiple let bindings
+-- Input: Env -> List of bindings -> List of type inferred bindings -> Substitution from the previous frame
+-- Output: Env with the bindings added -> List of type inferred bindings -> Substitution
+inferMultiLet :: Gamma -> [Bind] -> [Bind] -> Subst -> TC (Gamma, [Bind], Subst)
+inferMultiLet env [] ys sub = return (env, ys, sub)
+
+inferMultiLet env ((Bind id _ [] e1):xs) ys sub = do
+    (e1', tau, t)       <- inferExp env e1
+    let env' = E.add (substGamma t env) (id, generalise (substGamma t env) tau)
+        newBind = Bind id (Just (generalise env' tau)) [] e1'
+    inferMultiLet env' xs (ys ++ [newBind]) (t <> sub)
+
+
+-- Help function that binds arguments of function with fresh unification variables
+bindArgs :: Gamma -> [Id] -> TC (Gamma)
+bindArgs env [] = return env
+bindArgs env (x:xs) = do
+    alpha   <- fresh
+    bindArgs (E.add env (x, Ty alpha)) xs
+
+-- Helper function that contruct the type signature of a n-ary functions
+nAryType :: Gamma -> [Id] -> Type -> Type
+nAryType _ [] tau = tau
+nAryType env' (x:xs) tau = case env' `E.lookup` x of 
+    Just (Ty t)     -> Arrow t (nAryType env' xs tau)
+    Nothing         -> error "Variable type not found"
+    
