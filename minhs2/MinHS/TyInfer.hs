@@ -151,6 +151,10 @@ inferProgram env [Bind id _ _ e1] = do
 inferProgram _ _ = error "implement me! don't forget to run the result substitution on the"
                             "entire expression using allTypes from Syntax.hs"
 
+{-
+stack exec minhs-2 -- --dump type-infer tests/main_tests/Task-1/2_functions/1.mhs
+stack exec minhs-2 -- --dump parser-raw tests/main_tests/0_basics/bools/000.mhs
+-}
 inferExp :: Gamma -> Exp -> TC (Exp, Type, Subst)
 -- Constant
 inferExp _ a@(Num _) = return (a, Base Int, emptySubst)
@@ -242,6 +246,12 @@ inferExp env (Case e [Alt "Inl" [x] e1, Alt "Inr" [y] e2]) = do
 
 inferExp _ (Case _ _) = typeError MalformedAlternatives
 
+inferExp env (Letrec xs e) = do
+    (env', xs')             <- bindFresh env xs []
+    (env'', xs'', sub)      <- letrecHelper env' xs' [] emptySubst
+    (e', tau, t)            <- inferExp env'' e
+    return (Letrec xs'' e', tau, sub <> t)
+
 inferExp _ _ = error "Implement me!"
 
 -- -- Note: this is the only case you need to handle for case expressions
@@ -263,7 +273,7 @@ inferMultiLet env ((Bind id _ [] e1):xs) ys sub = do
 
 
 -- Help function that binds arguments of function with fresh unification variables
-bindArgs :: Gamma -> [Id] -> TC (Gamma)
+bindArgs :: Gamma -> [Id] -> TC Gamma
 bindArgs env [] = return env
 bindArgs env (x:xs) = do
     alpha   <- fresh
@@ -275,4 +285,26 @@ nAryType _ [] tau = tau
 nAryType env' (x:xs) tau = case env' `E.lookup` x of 
     Just (Ty t)     -> Arrow t (nAryType env' xs tau)
     Nothing         -> error "Variable type not found"
+
+bindFresh :: Gamma -> [Bind] -> [Bind] -> TC (Gamma, [Bind])
+bindFresh env [] ys = return (env, ys)
+
+bindFresh env (a@(Bind id t [] e):xs) ys = case t of
+    Nothing         -> do
+        alpha       <- fresh
+        let env'    = E.add env (id, Ty alpha) 
+            newBind = Bind id (Just (Ty alpha)) [] e
+        bindFresh env' xs (ys ++ [newBind]) 
+
+    Just tau        -> bindFresh (E.add env (id, tau)) xs (ys ++ [a])
+
+letrecHelper :: Gamma -> [Bind] -> [Bind] -> Subst -> TC (Gamma, [Bind], Subst)
+letrecHelper env [] ys sub = return (env, ys, sub)
+
+letrecHelper env ((Bind id (Just (Ty alpha)) [] e1):xs) ys sub = do
+    (e1', tau, t)       <- inferExp env e1
+    u                   <- unify tau alpha
+    let env' = E.add (substGamma (u <> t) env) (id, generalise (substGamma (u <> t) env) tau)
+        newBind = Bind id (Just (generalise env' (substitute u tau))) [] e1'
+    letrecHelper env' xs (ys ++ [newBind]) (u <> t <> sub)
     
