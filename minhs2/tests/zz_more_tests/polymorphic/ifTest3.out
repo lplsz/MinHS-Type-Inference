@@ -1,3 +1,0 @@
-main :: forall e. (Int + e) = if True
-                                 then Inl 1
-                                 else Inl 5;

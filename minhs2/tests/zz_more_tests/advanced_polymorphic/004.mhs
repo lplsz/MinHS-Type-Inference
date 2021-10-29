@@ -1,3 +1,0 @@
-main = 
-  let g = recfun f x = (recfun h z = x, x+1);
-  in g;

@@ -1,3 +1,0 @@
-main :: (Int + Bool) = if True
-                          then Inl 1
-                          else Inr False;

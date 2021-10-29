@@ -1,1 +1,0 @@
-main :: Bool = fst ((True, 5));
